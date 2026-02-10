@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Desafio Controle de Bola Magneto</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root{
+      --bg-top:#ffffff;
+      --bg-bot:#f6f3ff;
+
+      --purple-900:#1b0b38;
+      --purple-800:#2a0f56;
+      --purple-700:#3b1474;
+      --purple-500:#7a3cff;
+      --purple-300:#cbb6ff;
+
+      --ink:#120a22;
+      --white:#ffffff;
+
+      --muted:rgba(18,10,34,.72);
+      --stroke:rgba(27,11,56,.14);
+      --shadow: 0 18px 60px rgba(27,11,56,.18);
+      --radius: 22px;
+
+      --danger: #ff4d6d;
+      --ok: #15c48a;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+
+    body{
+      margin:0;
+      font-family:"Baloo 2", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(1200px 600px at 18% 12%, rgba(122,60,255,.14), transparent 55%),
+        radial-gradient(900px 520px at 88% 22%, rgba(27,11,56,.08), transparent 60%),
+        linear-gradient(180deg, var(--bg-top), var(--bg-bot));
+      overflow-x:hidden;
+    }
+
+    body::before{
+      content:"";
+      position:fixed; inset:0;
+      background:
+        linear-gradient(to right, rgba(27,11,56,.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(27,11,56,.05) 1px, transparent 1px);
+      background-size: 36px 36px;
+      opacity:.35;
+      pointer-events:none;
+      mix-blend-mode:multiply;
+    }
+
+    body::after{
+      content:"";
+      position:fixed; inset:-20%;
+      background: radial-gradient(circle at 50% 0%, rgba(122,60,255,.12), transparent 58%);
+      pointer-events:none;
+      opacity:.9;
+    }
+
+    .app{
+      min-height: 100svh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:
+        calc(18px + env(safe-area-inset-top))
+        calc(14px + env(safe-area-inset-right))
+        calc(22px + env(safe-area-inset-bottom))
+        calc(14px + env(safe-area-inset-left));
+      position:relative;
+    }
+
+    .frame{ width:min(980px, 100%); }
+
+    .hud{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      margin:0 auto 14px;
+      padding:10px 12px;
+      border-radius:999px;
+      background: rgba(255,255,255,.70);
+      border:1px solid var(--stroke);
+      box-shadow: 0 10px 30px rgba(27,11,56,.10);
+      backdrop-filter: blur(8px);
+      flex-wrap: wrap;
+    }
+
+    .hud__badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background: rgba(122,60,255,.10);
+      border:1px solid rgba(122,60,255,.22);
+      font-weight:900;
+      letter-spacing:.3px;
+      white-space:nowrap;
+      user-select:none;
+      color:var(--purple-800);
+    }
+
+    .bar{
+      flex:1;
+      height:12px;
+      border-radius:999px;
+      background: rgba(27,11,56,.08);
+      border:1px solid rgba(27,11,56,.10);
+      overflow:hidden;
+      position:relative;
+      min-width: 180px;
+    }
+
+    .bar__fill{
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background: linear-gradient(90deg, rgba(122,60,255,.95), rgba(59,20,116,.95));
+      box-shadow:0 0 22px rgba(122,60,255,.22);
+      transition: width .35s ease;
+    }
+
+    .hud__pct{
+      min-width:56px;
+      text-align:right;
+      font-weight:900;
+      color:var(--purple-700);
+      letter-spacing:.2px;
+      user-select:none;
+    }
+
+    .card{
+      border-radius:var(--radius);
+      background: linear-gradient(180deg, rgba(255,255,255,.90), rgba(255,255,255,.74));
+      border:1px solid rgba(27,11,56,.14);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+      isolation:isolate;
+      max-height: calc(100svh - 90px);
+      display:flex;
+      flex-direction:column;
+    }
+
+    .card::before{
+      content:"";
+      position:absolute; inset:0;
+      background:
+        radial-gradient(800px 400px at 12% 0%, rgba(122,60,255,.12), transparent 55%),
+        radial-gradient(700px 420px at 95% 25%, rgba(27,11,56,.08), transparent 60%);
+      opacity:.9;
+      pointer-events:none;
+      z-index:-1;
+    }
+
+    .content{
+      padding:26px 18px 18px;
+      overflow:auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .title{
+      margin:0 0 8px;
+      font-size: clamp(26px, 3.4vw, 42px);
+      line-height:1.05;
+      letter-spacing:.2px;
+      color:var(--purple-900);
+    }
+
+    .subtitle{
+      margin:0 0 18px;
+      color:rgba(18,10,34,.72);
+      font-size: clamp(16px, 2.1vw, 20px);
+      line-height:1.25;
+    }
+
+    .hint{
+      margin:10px 0 0;
+      color:rgba(18,10,34,.62);
+      font-size:14px;
+      letter-spacing:.2px;
+    }
+
+    .divider{
+      height:1px;
+      background:rgba(27,11,56,.14);
+      margin:18px 0;
+    }
+
+    .kicker{
+      display:inline-flex;
+      align-items:center;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:999px;
+      background: rgba(122,60,255,.10);
+      border:1px solid rgba(122,60,255,.20);
+      font-weight:900;
+      letter-spacing:.2px;
+      margin:0 0 14px;
+      user-select:none;
+      color:var(--purple-800);
+    }
+
+    .kicker .dot{
+      width:10px; height:10px;
+      border-radius:999px;
+      background:var(--purple-500);
+      box-shadow:0 0 18px rgba(122,60,255,.22);
+    }
+
+    .options{
+      display:grid;
+      gap:12px;
+      margin-top:14px;
+      grid-template-columns: 1fr;
+    }
+    .options.onecol{ grid-template-columns: 1fr; }
+
+    .btn{
+      width:100%;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      min-height: 56px;
+      padding:16px 14px;
+      border-radius:16px;
+      border:1px solid rgba(27,11,56,.14);
+      background: rgba(255,255,255,.70);
+      color:var(--purple-900);
+      font-family:inherit;
+      font-weight:900;
+      font-size: clamp(16px, 2.2vw, 20px);
+      cursor:pointer;
+      transition: transform .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+      text-align:left;
+      position:relative;
+      overflow:hidden;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn::after{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background: linear-gradient(120deg, transparent 30%, rgba(122,60,255,.14), transparent 70%);
+      transform: translateX(-65%);
+      transition: transform .45s ease;
+      pointer-events:none;
+    }
+
+    .btn:hover{
+      transform: translateY(-1px);
+      background: rgba(255,255,255,.86);
+      border-color: rgba(122,60,255,.26);
+      box-shadow: 0 12px 26px rgba(27,11,56,.14);
+    }
+    .btn:hover::after{ transform: translateX(65%); }
+    .btn:active{ transform: translateY(0px) scale(.99); }
+
+    .btn__arrow{
+      width:44px;
+      height:44px;
+      border-radius:12px;
+      background: rgba(27,11,56,.06);
+      border:1px solid rgba(27,11,56,.10);
+      display:grid;
+      place-items:center;
+      flex: 0 0 auto;
+      font-size:18px;
+      color:var(--purple-700);
+      user-select:none;
+    }
+
+    .btn--primary{
+      background: linear-gradient(180deg, rgba(122,60,255,.98), rgba(59,20,116,.92));
+      border-color: rgba(59,20,116,.75);
+      color: #fff;
+      box-shadow: 0 16px 35px rgba(122,60,255,.22);
+    }
+    .btn--primary .btn__arrow{
+      background: rgba(255,255,255,.14);
+      border-color: rgba(255,255,255,.20);
+      color:#fff;
+    }
+    .btn--primary:hover{
+      background: linear-gradient(180deg, rgba(140,92,255,.98), rgba(59,20,116,.95));
+      border-color: rgba(140,92,255,.70);
+    }
+
+    .btn--ghost{ background: rgba(27,11,56,.06); }
+
+    .btn--ok{
+      background: rgba(21,196,138,.10);
+      border-color: rgba(21,196,138,.22);
+    }
+
+    .btn[disabled]{
+      opacity:.55;
+      cursor:not-allowed;
+      transform:none !important;
+      box-shadow:none !important;
+    }
+
+    .footer{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding:14px 16px;
+      background: rgba(255,255,255,.70);
+      border-top:1px solid rgba(27,11,56,.12);
+      flex: 0 0 auto;
+    }
+
+    .mini{
+      color:rgba(18,10,34,.70);
+      font-size:14px;
+      font-weight:800;
+    }
+
+    .back{
+      background:transparent;
+      border:1px solid rgba(27,11,56,.16);
+      color:var(--purple-900);
+      padding:10px 12px;
+      border-radius:14px;
+      font-weight:900;
+      font-family:inherit;
+      cursor:pointer;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .back:hover{
+      transform: translateY(-1px);
+      background: rgba(122,60,255,.08);
+      border-color: rgba(122,60,255,.26);
+    }
+
+    .bullets{
+      display:grid;
+      gap:10px;
+      margin:14px 0 0;
+    }
+    .bullet{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      padding:12px 12px;
+      border-radius:16px;
+      background: rgba(255,255,255,.70);
+      border:1px solid rgba(27,11,56,.14);
+      color:var(--purple-900);
+      font-weight:900;
+    }
+    .bullet .ic{
+      width:34px; height:34px;
+      border-radius:12px;
+      display:grid;
+      place-items:center;
+      background: rgba(122,60,255,.10);
+      border:1px solid rgba(122,60,255,.18);
+      flex:0 0 auto;
+      color:var(--purple-700);
+    }
+    .bullet small{
+      display:block;
+      margin-top:2px;
+      font-weight:800;
+      color:rgba(18,10,34,.62);
+    }
+
+    .summary{
+      margin-top:14px;
+      padding:14px 14px;
+      border-radius:16px;
+      background: rgba(27,11,56,.04);
+      border:1px dashed rgba(27,11,56,.18);
+      color:rgba(18,10,34,.78);
+      font-weight:800;
+      font-size:14px;
+    }
+    .summary b{ color: var(--purple-700); }
+
+    .countdownBox{
+      margin:18px 0;
+      padding:18px;
+      border-radius:18px;
+      background: rgba(255,77,109,.08);
+      border:1px solid rgba(255,77,109,.20);
+      text-align:center;
+      box-shadow: 0 18px 45px rgba(27,11,56,.12);
+    }
+    .countdownTitle{
+      font-weight:900;
+      font-size:18px;
+      margin-bottom:8px;
+      letter-spacing:.2px;
+      color:var(--purple-900);
+    }
+    .timer{
+      font-size:44px;
+      font-weight:900;
+      color:var(--danger);
+      letter-spacing:2px;
+    }
+    .countdownSub{
+      margin-top:6px;
+      font-size:14px;
+      color:rgba(18,10,34,.70);
+      font-weight:900;
+    }
+    .countdownTag{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      margin-top:10px;
+      padding:8px 12px;
+      border-radius:999px;
+      background: rgba(122,60,255,.10);
+      border:1px solid rgba(122,60,255,.18);
+      font-weight:900;
+      color:var(--purple-800);
+    }
+
+    .timer.urgent{ animation: pulse 0.9s ease-in-out infinite; }
+    @keyframes pulse{
+      0%{ transform: scale(1); filter: brightness(1); }
+      50%{ transform: scale(1.04); filter: brightness(1.06); }
+      100%{ transform: scale(1); filter: brightness(1); }
+    }
+
+    .countdownBox.expired{
+      background: rgba(21,196,138,.08);
+      border-color: rgba(21,196,138,.18);
+    }
+    .countdownBox.expired .timer{ color: var(--ok); }
+
+    @media (max-width: 360px){
+      .title{ font-size: 24px; }
+      .btn{ font-size: 15px; }
+    }
+    @media (max-width: 310px){
+      .content{ padding:20px 14px 14px; }
+      .title{ font-size: 26px; }
+      .subtitle{ font-size: 15px; }
+      .hud{ padding:8px 10px; }
+      .divider{ margin:14px 0; }
+    }
+    @media (max-height: 680px){
+      .content{ padding:22px 16px 14px; }
+      .divider{ margin:14px 0; }
+      .bullets{ gap:8px; }
+      .bullet{ padding:10px 10px; }
+    }
+    @media (min-width: 420px){
+      .content{ padding:34px 30px 22px; }
+      .options{ grid-template-columns: 1fr 1fr; }
+      .options.onecol{ grid-template-columns: 1fr; }
+      .bullets{ grid-template-columns: 1fr 1fr; }
+    }
+    @media (min-width: 980px){
+      .bullets{ grid-template-columns: 1fr 1fr 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <div class="frame">
+      <div class="hud" aria-label="Progresso do quiz">
+        <div class="hud__badge">⚽ DESAFIO</div>
+        <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <div class="bar__fill" id="barFill" style="width:0%"></div>
+        </div>
+        <div class="hud__pct" id="hudPct">0%</div>
+      </div>
+
+      <section class="card">
+        <div class="content" id="screen"></div>
+
+        <div class="footer">
+          <div class="mini" id="miniText">🎮 Estilo videogame • Uma pergunta por tela • Botões grandes</div>
+          <button class="back" id="backBtn" type="button" style="display:none;">⟵ Voltar</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const CONFIG = {
+      productPrice: "R$ 27,90",
+      installments: "em até 12x",
+      checkoutUrl: "https://SEU-CHECKOUT-EDUZZ-AQUI",
+      whatsappUrl: "https://wa.me/5511933254794?text=Oi!%20Quero%20come%C3%A7ar%20o%20Desafio%20Controle%20de%20Bola%20Magneto%20%E2%9A%BD%F0%9F%A7%B2%0ATenho%20uma%20d%C3%BAvida%20r%C3%A1pida:%20como%20funciona%20e%20o%20que%20eu%20recebo%20no%20acesso%3F",
+      countdownMinutes: 10
+    };
+
+    const state = {
+      step: 0,
+      answers: {
+        idade: null,
+        ondeJoga: null,
+        quandoChega: null,
+        tristeza: null,
+        treino: null,
+        querNoFutebol: null,
+        confirmaDesejo: null,
+        idolo: null,
+        trava: null,
+        querEntender: null
+      },
+      history: []
+    };
+
+    const screenEl = document.getElementById("screen");
+    const barFill = document.getElementById("barFill");
+    const hudPct = document.getElementById("hudPct");
+    const backBtn = document.getElementById("backBtn");
+    const miniText = document.getElementById("miniText");
+
+    function escapeHtml(str){
+      return String(str ?? "")
+        .replaceAll("&","&amp;")
+        .replaceAll("<","&lt;")
+        .replaceAll(">","&gt;")
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#039;");
+    }
+
+    function setProgress(pct){
+      const clamped = Math.max(0, Math.min(100, pct));
+      barFill.style.width = clamped + "%";
+      hudPct.textContent = clamped + "%";
+      document.querySelector(".bar").setAttribute("aria-valuenow", String(clamped));
+    }
+
+    function showBackButton(){
+      backBtn.style.display = state.step > 0 ? "inline-flex" : "none";
+    }
+
+    function getQuestionNumber(stepId){
+      const qIds = ["idade","onde","chega","triste","treino","quer","trava"];
+      const idx = qIds.indexOf(stepId);
+      return idx >= 0 ? (idx + 1) : "";
+    }
+
+    function qStep({ id, progress, key, title, options, emoji }) {
+      return {
+        id,
+        progress,
+        mini: "🟣 Uma pergunta por tela",
+        render(ctx) {
+          const nextIndex = ctx.index + 1;
+          const optHtml = options.map((opt, i) => {
+            const em = emoji?.[i] ? (emoji[i] + " ") : "";
+            return `
+              <button class="btn" data-answer="${escapeHtml(key)}" data-value="${escapeHtml(opt)}" data-next="${nextIndex}">
+                <span>${em}${escapeHtml(opt)}</span>
+                <span class="btn__arrow">➜</span>
+              </button>
+            `;
+          }).join("");
+
+          return `
+            <div class="kicker"><span class="dot"></span> Pergunta ${getQuestionNumber(id)}</div>
+            <h2 class="title" style="font-size:clamp(22px,3vw,34px);">${escapeHtml(title)}</h2>
+            <p class="subtitle">Escolha uma opção para continuar.</p>
+            <div class="options onecol">${optHtml}</div>
+            <p class="hint">Clicou, avançou.</p>
+          `;
+        }
+      };
+    }
+
+    const steps = [
+      {
+        id: "start",
+        progress: 0,
+        mini: "🎮 Estilo videogame • Uma pergunta por tela • Botões grandes",
+        render() {
+          return `
+            <div class="kicker"><span class="dot"></span> Desafio de 30 dias</div>
+            <h1 class="title">Se torne o craque do seu time com o desafio <span style="color:var(--purple-500)">CONTROLE DE BOLA MAGNETO</span>.</h1>
+            <p class="subtitle">Um desafio de 30 dias para se tornar um jogador de futebol de alto nível 🧲🔥</p>
+
+            <div class="options onecol">
+              <button class="btn btn--primary" data-next="1">
+                <span>COMEÇAR O DESAFIO</span>
+                <span class="btn__arrow">▶</span>
+              </button>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="bullets">
+              <div class="bullet"><span class="ic">🧲</span><div>Controle de bola <small>bola colada no pé</small></div></div>
+              <div class="bullet"><span class="ic">🛡️</span><div>Confiança <small>jogar sem medo</small></div></div>
+              <div class="bullet"><span class="ic">⭐</span><div>Destaque <small>ser chamado de craque</small></div></div>
+            </div>
+
+            <p class="hint">No final, troque o link do checkout em <b>CONFIG.checkoutUrl</b>.</p>
+          `;
+        }
+      },
+
+      qStep({ id:"idade",  progress:10, key:"idade",  title:"Quantos anos você tem?", options:["Até 8 anos","9 a 11 anos","12 a 14 anos","15 a 16 anos"] }),
+      qStep({ id:"onde",   progress:20, key:"ondeJoga", title:"Onde você mais joga futebol?", options:["Na escola","Na rua / quadra","Em escolinha","Em time","Só por diversão"] }),
+      qStep({ id:"chega",  progress:30, key:"quandoChega", title:"Quando a bola chega em você, o que mais acontece?", options:["A bola escapa do meu pé","A bola fica longe","Demoro pra dominar","Já passo rápido","A bola fica colada no pé"] }),
+      qStep({ id:"triste", progress:40, key:"tristeza", title:"O que mais te deixa triste jogando?", options:["Perder a bola fácil","Errar domínio simples","Ver outros jogando melhor","Sentir que não melhora","Nada, eu jogo bem"] }),
+      qStep({ id:"treino", progress:50, key:"treino", title:"Você já treinou controle de bola fora do jogo?", options:["Nunca","Já tentei, mas não sabia como","Treino às vezes","Sim, treino sempre"] }),
+      qStep({ id:"quer",   progress:60, key:"querNoFutebol", title:"O que você MAIS quer no futebol?", options:["Ter a bola colada no pé","Ser o melhor do time","Ser chamado de craque","Jogar sem medo","Fazer jogadas bonitas"] }),
+
+      {
+        id: "confirma",
+        progress: 70,
+        mini: "🧲 Promessa + checklist",
+        render() {
+          return `
+            <div class="kicker"><span class="dot"></span> Missão: virar craque</div>
+
+            <h2 class="title" style="font-size:clamp(22px,3vw,34px);">
+              E se eu te contar que com esse desafio você vai atingir <span style="color:var(--purple-500)">TODAS</span> essas coisas? ⚽🧲
+            </h2>
+
+            <div class="bullets" style="margin-top:12px">
+              <div class="bullet"><span class="ic">✔</span><div>Ter a bola colada no pé</div></div>
+              <div class="bullet"><span class="ic">✔</span><div>Ser um dos melhores do time</div></div>
+              <div class="bullet"><span class="ic">✔</span><div>Ser chamado de craque</div></div>
+              <div class="bullet"><span class="ic">✔</span><div>Jogar sem medo</div></div>
+              <div class="bullet"><span class="ic">✔</span><div>Fazer jogadas bonitas</div></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h3 class="title" style="font-size:clamp(20px,2.6vw,28px); margin-bottom:10px;">
+              É isso que você busca? ⚽
+            </h3>
+
+            <div class="options onecol">
+              <button class="btn btn--ok" data-answer="confirmaDesejo" data-value="Sim, é exatamente isso que eu quero!" data-next="8">
+                <span>✅ Sim, é exatamente isso que eu quero!</span>
+                <span class="btn__arrow">➜</span>
+              </button>
+              <button class="btn btn--ghost" data-answer="confirmaDesejo" data-value="Ainda estou em dúvida" data-next="8">
+                <span>🤔 Ainda estou em dúvida</span>
+                <span class="btn__arrow">➜</span>
+              </button>
+            </div>
+
+            <p class="hint">Bora ver seu estilo e o que te trava.</p>
+          `;
+        }
+      },
+
+      {
+        id: "idolo",
+        progress: 80,
+        mini: "⭐ Identificação",
+        render() {
+          return `
+            <div class="kicker"><span class="dot"></span> Escolha seu estilo</div>
+
+            <h2 class="title" style="font-size:clamp(22px,3vw,34px);">
+              Qual desses jogadores você mais se inspira? ⚽
+            </h2>
+
+            <div class="options onecol">
+              <button class="btn" data-answer="idolo" data-value="Neymar" data-next="9">
+                <span>🌟 Neymar <span style="display:block; font-size:14px; font-weight:800; color:rgba(18,10,34,.62)">Drible, criatividade e controle colado no pé</span></span>
+                <span class="btn__arrow">➜</span>
+              </button>
+              <button class="btn" data-answer="idolo" data-value="Cristiano Ronaldo" data-next="9">
+                <span>💪 Cristiano Ronaldo <span style="display:block; font-size:14px; font-weight:800; color:rgba(18,10,34,.62)">Força, potência, velocidade e finalização</span></span>
+                <span class="btn__arrow">➜</span>
+              </button>
+              <button class="btn" data-answer="idolo" data-value="Messi" data-next="9">
+                <span>🧠 Messi <span style="display:block; font-size:14px; font-weight:800; color:rgba(18,10,34,.62)">Inteligência, controle e decisões rápidas</span></span>
+                <span class="btn__arrow">➜</span>
+              </button>
+            </div>
+
+            <p class="hint">Agora me diz a trava real.</p>
+          `;
+        }
+      },
+
+      qStep({
+        id: "trava",
+        progress: 90,
+        key: "trava",
+        title: "Pra saber se esse desafio é pra você, me diz o que mais te trava hoje:",
+        options: [
+          "A bola não fica colada no meu pé",
+          "Erro domínio fácil",
+          "Travo na hora de decidir o que fazer",
+          "Fico nervoso quando alguém vem marcar",
+          "Sinto que outros meninos são melhores que eu",
+          "Treino, mas não vejo melhora"
+        ],
+        emoji: ["😕","😬","🧠","😓","🏃","🔁"]
+      }),
+
+      {
+        id: "final",
+        progress: 100,
+        mini: "✅ Decisão → Checkout / WhatsApp",
+        render() {
+          const summary = buildSummary(state.answers);
+          return `
+            <div class="kicker"><span class="dot"></span> Resultado do quiz</div>
+
+            <h2 class="title" style="font-size:clamp(22px,3vw,34px);">
+              Pelo seu perfil, o <span style="color:var(--purple-500)">Desafio Controle de Bola Magneto</span> encaixa certinho. ⚽🧲
+            </h2>
+
+            <div class="divider"></div>
+
+            <div class="countdownBox" id="countdownBox">
+              <div class="countdownTitle" id="countdownTitle">⚠️ Oferta especial liberada por tempo limitado</div>
+              <div class="timer" id="timer">10:00</div>
+              <div class="countdownSub" id="countdownSub">Depois disso, o valor pode voltar ao normal.</div>
+              <div class="countdownTag" id="countdownTag">🔒 Seu preço está reservado agora</div>
+            </div>
+
+            <div class="bullets">
+              <div class="bullet"><span class="ic">✅</span><div>Método testado <small>base certa pra evoluir</small></div></div>
+              <div class="bullet"><span class="ic">🔥</span><div>30 Dias <small>progressivo e simples</small></div></div>
+              <div class="bullet"><span class="ic">🏠</span><div>Treino em casa <small>sem complicação</small></div></div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="kicker" style="margin-bottom:10px;">
+              <span class="dot"></span> Tudo isso por <span style="color:var(--purple-500); font-weight:900;">${CONFIG.productPrice}</span> (${CONFIG.installments})
+            </div>
+
+            <div class="options onecol">
+              <button class="btn btn--primary" id="goCheckout">
+                <span>✅ Sim, quero começar agora!</span>
+                <span class="btn__arrow">⚡</span>
+              </button>
+              <button class="btn btn--ghost" id="goWhatsapp">
+                <span>🤔 Ainda estou com dúvida, quero falar no WhatsApp</span>
+                <span class="btn__arrow">💬</span>
+              </button>
+              <button class="btn" id="restartBtn">
+                <span>🔁 Refazer o quiz</span>
+                <span class="btn__arrow">↺</span>
+              </button>
+            </div>
+
+            <div class="summary">
+              <div style="margin-bottom:6px; font-weight:900;">📌 Resumo</div>
+              ${summary}
+            </div>
+
+            <p class="hint">Troque os links no topo: <b>CONFIG.checkoutUrl</b> e <b>CONFIG.whatsappUrl</b>.</p>
+          `;
+        }
+      }
+    ];
+
+    function startCountdown(minutes){
+      const timerEl = document.getElementById("timer");
+      if(!timerEl) return;
+
+      const box = document.getElementById("countdownBox");
+      const title = document.getElementById("countdownTitle");
+      const sub = document.getElementById("countdownSub");
+      const tag = document.getElementById("countdownTag");
+
+      const checkoutBtn = document.getElementById("goCheckout");
+      const whatsappBtn = document.getElementById("goWhatsapp");
+
+      const key = "magnetoTimerStart";
+      const totalSeconds = Math.max(1, Math.floor(minutes * 60));
+
+      let start = parseInt(localStorage.getItem(key) || "0", 10);
+      if(!start){
+        start = Date.now();
+        localStorage.setItem(key, String(start));
+      }
+
+      function onExpire(){
+        box?.classList.add("expired");
+        timerEl.classList.remove("urgent");
+        timerEl.textContent = "00:00";
+        if(title) title.textContent = "✅ Oferta pausada (tempo esgotado)";
+        if(sub) sub.textContent = "Chama no WhatsApp que a gente garante o preço pra você.";
+        if(tag) tag.textContent = "💬 Atendimento rápido no WhatsApp";
+
+        if(checkoutBtn){
+          checkoutBtn.disabled = true;
+          checkoutBtn.innerHTML = `<span>⛔ Checkout indisponível (tempo esgotado)</span><span class="btn__arrow">—</span>`;
+        }
+        if(whatsappBtn){
+          whatsappBtn.classList.add("btn--primary");
+          whatsappBtn.classList.remove("btn--ghost");
+          whatsappBtn.innerHTML = `<span>💬 Garantir meu preço no WhatsApp</span><span class="btn__arrow">⚡</span>`;
+        }
+      }
+
+      function tick(){
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const left = Math.max(totalSeconds - elapsed, 0);
+
+        const m = Math.floor(left / 60);
+        const s = left % 60;
+        timerEl.textContent = String(m).padStart(2,"0") + ":" + String(s).padStart(2,"0");
+
+        if(left <= 60 && left > 0) timerEl.classList.add("urgent");
+        else timerEl.classList.remove("urgent");
+
+        if(left <= 0){
+          onExpire();
+          return;
+        }
+        setTimeout(tick, 250);
+      }
+
+      tick();
+    }
+
+    function renderStep(stepIndex){
+      state.step = stepIndex;
+      const step = steps[stepIndex];
+
+      setProgress(step.progress ?? 0);
+      miniText.textContent = step.mini ?? "🎯 Objetivo: evolução real";
+      showBackButton();
+
+      screenEl.innerHTML = step.render({ index: stepIndex });
+
+      if(step.id === "final"){
+        startCountdown(CONFIG.countdownMinutes);
+
+        document.getElementById("goCheckout")?.addEventListener("click", () => {
+          if(!CONFIG.checkoutUrl || CONFIG.checkoutUrl.includes("SEU-CHECKOUT")){
+            alert("Coloque seu link do checkout em CONFIG.checkoutUrl no topo do arquivo.");
+            return;
+          }
+          window.location.href = CONFIG.checkoutUrl;
+        });
+
+        document.getElementById("goWhatsapp")?.addEventListener("click", () => {
+          window.location.href = CONFIG.whatsappUrl;
+        });
+
+        document.getElementById("restartBtn")?.addEventListener("click", () => restart());
+      }
+    }
+
+    function goTo(nextIndex){
+      if(Number.isNaN(nextIndex)) return;
+      state.history.push(state.step);
+      renderStep(nextIndex);
+    }
+
+    function goBack(){
+      const prev = state.history.pop();
+      if(prev === undefined) return;
+      renderStep(prev);
+    }
+
+    function restart(){
+      localStorage.removeItem("magnetoTimerStart");
+      state.step = 0;
+      state.history = [];
+      Object.keys(state.answers).forEach(k => state.answers[k] = null);
+      renderStep(0);
+    }
+
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-next], [data-answer]");
+      if(!btn) return;
+
+      const key = btn.getAttribute("data-answer");
+      const val = btn.getAttribute("data-value");
+      if(key){
+        state.answers[key] = val;
+      }
+
+      const next = btn.getAttribute("data-next");
+      if(next !== null){
+        goTo(parseInt(next, 10));
+      }
+    });
+
+    backBtn.addEventListener("click", () => goBack());
+
+    function buildSummary(a){
+      const rows = [
+        ["Idade", a.idade],
+        ["Onde joga", a.ondeJoga],
+        ["Quando a bola chega", a.quandoChega],
+        ["O que deixa triste", a.tristeza],
+        ["Treino fora do jogo", a.treino],
+        ["O que mais quer", a.querNoFutebol],
+        ["Confirma desejo", a.confirmaDesejo],
+        ["Inspiração", a.idolo],
+        ["Trava hoje", a.trava],
+        ["Preferência", a.querEntender]
+      ];
+
+      return rows.map(([k,v]) => {
+        const vv = v ? escapeHtml(v) : "<span style='opacity:.55'>—</span>";
+        return `<div><b>${escapeHtml(k)}:</b> ${vv}</div>`;
+      }).join("");
+    }
+
+    renderStep(0);
+  </script>
+</body>
+</html>
